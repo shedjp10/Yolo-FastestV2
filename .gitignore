@@ -1,7 +1,9 @@
 model/__pycache__
 model/backbone/__pycache__
 utils/__pycache__
-weights
+weights/*
+!weights/README.md
+!weights/.gitkeep
 data/voc.data
 data/voc.names
 
