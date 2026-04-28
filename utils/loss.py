@@ -130,8 +130,9 @@ def smooth_BCE(eps=0.1):  # https://github.com/ultralytics/yolov3/issues/238#iss
 def compute_loss(preds, targets, cfg, device):
     balance = [1.0, 0.4]
 
-    ft = torch.cuda.FloatTensor if preds[0].is_cuda else torch.Tensor
-    lcls, lbox, lobj = ft([0]), ft([0]), ft([0])
+    lcls = torch.zeros(1, device=device)
+    lbox = torch.zeros(1, device=device)
+    lobj = torch.zeros(1, device=device)
 
     #定义obj和cls的损失函数
     BCEcls = nn.CrossEntropyLoss() 
