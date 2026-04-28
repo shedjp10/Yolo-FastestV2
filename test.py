@@ -28,9 +28,9 @@ def parse_args():
     parser.add_argument('--iou', type=float, default=0.4,
                         help='NMS IoU 阈值')
     parser.add_argument('--keep-ratio', dest='keep_ratio', action='store_true',
-                        default=True, help='预处理使用 letterbox (默认开)')
+                        default=False, help='预处理使用 letterbox (默认关)')
     parser.add_argument('--no-keep-ratio', dest='keep_ratio', action='store_false',
-                        help='预处理直接 stretch')
+                        help='预处理直接 stretch (默认)')
     parser.add_argument('--out', type=str, default='test_result.png',
                         help='输出文件名')
     parser.add_argument('--device', type=str, default='auto',

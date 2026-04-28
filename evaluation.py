@@ -16,9 +16,9 @@ def parse_args():
     parser.add_argument('--weights', type=str, required=True,
                         help='待评估的 .pth 权重路径')
     parser.add_argument('--keep-ratio', dest='keep_ratio', action='store_true',
-                        default=True, help='预处理使用 letterbox 等比缩放 (默认开)')
+                        default=False, help='预处理使用 letterbox 等比缩放 (默认关)')
     parser.add_argument('--no-keep-ratio', dest='keep_ratio', action='store_false',
-                        help='预处理直接 stretch 拉伸')
+                        help='预处理直接 stretch 拉伸 (默认)')
     parser.add_argument('--conf', type=float, default=0.01,
                         help='评估时使用的置信度阈值 (mAP 计算默认 0.01, PR 默认 0.3)')
     parser.add_argument('--iou', type=float, default=0.5,

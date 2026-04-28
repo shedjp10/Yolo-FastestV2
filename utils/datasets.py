@@ -97,14 +97,15 @@ def letterbox(img, new_w, new_h, pad_color=(114, 114, 114)):
 
 class TensorDataset(Dataset):
     def __init__(self, path, img_size_width=352, img_size_height=352,
-                 imgaug=False, keep_ratio=True):
+                 imgaug=False, keep_ratio=False):
         """
         Args:
             path:            train.txt / valid.txt 路径
             img_size_width:  网络输入宽
             img_size_height: 网络输入高
             imgaug:          是否做训练增强
-            keep_ratio:      True=letterbox 保持原图比例(推荐); False=直接 stretch (与原仓库行为一致)
+            keep_ratio:      False=直接 stretch 拉伸 (默认, 适合本数据集 16:9 固定比例);
+                             True=letterbox 等比缩放 (适合通用场景, 但本数据集精度较低)
         """
         super().__init__()
         assert os.path.exists(path), "%s文件路径错误或不存在" % path

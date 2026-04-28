@@ -122,8 +122,8 @@ def map_box_to_orig(box, ratio, pad_l, pad_t, ori_w, ori_h):
     return x1, y1, x2, y2
 
 
-def preprocess(frame, width, height, device, keep_ratio=True):
-    """letterbox(默认) 或 stretch 后转为 (1,3,H,W) float32 tensor / 255。"""
+def preprocess(frame, width, height, device, keep_ratio=False):
+    """stretch(默认) 或 letterbox 后转为 (1,3,H,W) float32 tensor / 255。"""
     if keep_ratio:
         canvas, ratio, pad_l, pad_t = letterbox(frame, width, height)
     else:
@@ -223,9 +223,9 @@ def parse_args():
     parser.add_argument("--height", type=int, default=0,
                         help="摄像头采集高度 (0 = 默认)")
     parser.add_argument("--keep-ratio", dest="keep_ratio", action="store_true",
-                        default=True, help="预处理使用 letterbox 等比缩放 (默认开)")
+                        default=False, help="预处理使用 letterbox 等比缩放 (默认关)")
     parser.add_argument("--no-keep-ratio", dest="keep_ratio", action="store_false",
-                        help="预处理直接 stretch 拉伸")
+                        help="预处理直接 stretch 拉伸 (默认)")
     parser.add_argument("--font", type=str, default="",
                         help="中文字体文件路径 (.ttf/.ttc); 默认自动找微软雅黑/黑体/宋体")
     parser.add_argument("--font-size", type=int, default=22,

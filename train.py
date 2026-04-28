@@ -20,9 +20,9 @@ def parse_args():
     parser.add_argument('--data', type=str, required=True,
                         help='训练配置 *.data 路径')
     parser.add_argument('--keep-ratio', dest='keep_ratio', action='store_true',
-                        default=True, help='预处理使用 letterbox 等比缩放 (默认开)')
+                        default=False, help='预处理使用 letterbox 等比缩放 (默认关, 可选)')
     parser.add_argument('--no-keep-ratio', dest='keep_ratio', action='store_false',
-                        help='预处理直接 stretch 拉伸 (与原仓库行为一致)')
+                        help='预处理直接 stretch 拉伸 (默认, 与原仓库行为一致)')
     parser.add_argument('--seed', type=int, default=42,
                         help='随机种子, 便于复现 (默认 42)')
     parser.add_argument('--device', type=str, default='auto',
