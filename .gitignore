@@ -1,6 +1,4 @@
-model/__pycache__
-model/backbone/__pycache__
-utils/__pycache__
+**/__pycache__/
 weights/*
 !weights/README.md
 !weights/.gitkeep
