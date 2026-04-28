@@ -95,3 +95,77 @@ python pytorch2onnx.py --data data/dms-kaggle.data --weights weights/dms-kaggle-
 ## 历史训练记录
 
 > 后续每次重要训练完成后，请在此追加一节 `## <模型名> 训练记录`，至少包含：训练时间、配置文件、命令、最佳权重、mAP 表格。
+
+
+---
+
+## ONNX / NCNN 部署说明 (2026-04-28)
+
+### 模型转换
+
+1. **PyTorch → ONNX** (使用 `pytorch2onnx.py`):
+   ```bash
+   python pytorch2onnx.py \
+     --data data/dms-kaggle.data \
+     --weights weights/dms-kaggle-150-epoch-0.699052ap-model.pth \
+     --output weights/dms-kaggle.onnx \
+     --simplify
+   ```
+   产出: `weights/dms-kaggle.onnx` (~968 KB) 与 `weights/dms-kaggle-sim.onnx` (~982 KB, 经 onnxsim 简化, 推荐用于下游)
+
+2. **ONNX → NCNN** (使用 `pnnx`):
+   ```bash
+   pnnx weights/dms-kaggle-sim.onnx inputshape=[1,3,352,352]
+   ```
+   产出 (FP16 量化, 默认):
+   - `weights/dms_kaggle_sim.ncnn.param` (~13 KB) — 网络结构
+   - `weights/dms_kaggle_sim.ncnn.bin` (~478 KB) — 权重 (FP16)
+   - `weights/dms_kaggle_sim_ncnn.py` — 自动生成的推理样板
+
+   如需 FP32: `pnnx ... fp16=0` (.bin 变为 ~940 KB)
+
+### 模型输出格式 (`detector.export_onnx=True` 分支)
+
+- 两个尺度: `(1, 22, 22, 20)` (stride=16) 与 `(1, 11, 11, 20)` (stride=32)
+- 每 cell 的 20 通道 (NHWC):
+  - `[0:12]` per-anchor 回归 (cx,cy,w,h) × 3 anchors, 已 sigmoid
+  - `[12:15]` per-anchor obj (1) × 3 anchors, 已 sigmoid
+  - `[15:20]` 共享 cls (5 类), 已 softmax
+
+### 推理脚本
+
+- **`infer_onnx.py`** — 用 onnxruntime 推理 (CPU/GPU 自动选择)
+- **`infer_ncnn.py`** — 用 ncnn-python 推理
+
+```bash
+python infer_onnx.py --data data/dms-kaggle.data \
+    --onnx weights/dms-kaggle-sim.onnx \
+    --img <img> --conf 0.3 --iou 0.4 --bench 50
+
+python infer_ncnn.py --data data/dms-kaggle.data \
+    --param weights/dms_kaggle_sim.ncnn.param \
+    --bin weights/dms_kaggle_sim.ncnn.bin \
+    --img <img> --conf 0.3 --iou 0.4 --bench 50
+```
+
+### x86 CPU 性能 (i9, 单线程参考)
+
+| Backend       | Latency | FPS    |
+|---------------|---------|--------|
+| ONNX Runtime  | 3.4 ms  | 290    |
+| NCNN (FP16)   | 4.7 ms  | 215    |
+
+> NCNN 在 x86 略慢于 ONNX (FP16 ↔ FP32 转换开销); 部署到 ARM/嵌入式平台时 NCNN 才显出优势 (体积小、编译简单、对低端 CPU 有针对性优化)。
+
+### Python 依赖
+
+- `onnx==1.21.0`, `onnxruntime==1.18.1`, `onnxsim==0.6.2`
+- `ncnn==1.0.20260114` (`pip install ncnn`)
+- `pnnx` (`pip install pnnx`, 提供 `pnnx.exe` 转换工具)
+- 注意: 安装 `ncnn` 会拉 numpy 2.x; 需手动 `pip install "numpy<2"` 防 onnxruntime 失效
+
+### 已知坑
+
+- `cv2.transpose(2,0,1)` 后 numpy 数组**非连续**, 直接传 `ncnn.Mat()` 会读乱内存导致输出错乱 (obj 通道全 0). 必须 `np.ascontiguousarray()` 先连续化.
+- ncnn `Mat` 引用的 numpy 数组**必须保持作用域**, 否则段错误 (Windows: 退出码 -1073741819 / `0xC0000005`).
+- pnnx 默认开启 fp16; 大多数情况无影响, 极少数对边界值敏感的层可换 `fp16=0`.
