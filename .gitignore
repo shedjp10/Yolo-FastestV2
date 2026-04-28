@@ -4,3 +4,14 @@ utils/__pycache__
 weights
 data/voc.data
 data/voc.names
+
+# 训练日志
+logs/
+
+# 数据集原始数据（数据集本身不入库，从 Kaggle 获取）
+data/dms-kaggle/train/
+data/dms-kaggle/valid/
+data/dms-kaggle/test/
+# 本机图片列表（由用户按需生成，路径与本机目录相关）
+data/dms-kaggle/train.txt
+data/dms-kaggle/valid.txt
