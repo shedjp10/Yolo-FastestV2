@@ -100,7 +100,10 @@ class TensorDataset():
 
     def __getitem__(self, index):
         img_path = self.data_list[index]
-        label_path = img_path.split(".")[0] + ".txt"
+        # 兼容 YOLO 标准目录结构: images/ 与 labels/ 并列，且文件名中可能包含 "." (如 roboflow 导出)
+        base, _ = os.path.splitext(img_path)
+        label_path = base.replace(os.sep + "images" + os.sep, os.sep + "labels" + os.sep) \
+                         .replace("/images/", "/labels/") + ".txt"
 
         # 归一化操作
         img = cv2.imread(img_path)
@@ -115,7 +118,12 @@ class TensorDataset():
             label = []
             with open(label_path, 'r') as f:
                 for line in f.readlines():
-                    l = line.strip().split(" ")
+                    s = line.strip()
+                    if not s:
+                        continue
+                    l = s.split()
+                    if len(l) < 5:
+                        continue
                     label.append([0, l[0], l[1], l[2], l[3], l[4]])
             label = np.array(label, dtype=np.float32)
 
