@@ -59,7 +59,8 @@ def write_anchors_to_file(centroids,X,anchor_file, width_in_cfg_file, height_in_
         f.write('%0.2f,%0.2f, '%(anchors[i,0],anchors[i,1]))
 
     #there should not be comma after last anchor, that's why
-    f.write('%0.2f,%0.2f\n'%(anchors[sorted_indices[-1:],0],anchors[sorted_indices[-1:],1]))
+    last_idx = int(sorted_indices[-1])
+    f.write('%0.2f,%0.2f\n'%(anchors[last_idx, 0], anchors[last_idx, 1]))
     
     f.write('%f\n'%(avg_IOU(X,centroids)))
     print()
@@ -92,7 +93,7 @@ def kmeans(X,centroids,eps,anchor_file, width_in_cfg_file, height_in_cfg_file):
             return
 
         #calculate new centroids
-        centroid_sums=np.zeros((k,dim),np.float)
+        centroid_sums=np.zeros((k,dim), dtype=np.float64)
         for i in range(N):
             centroid_sums[assignments[i]]+=X[i]        
         for j in range(k):            
@@ -130,20 +131,28 @@ def main(argv):
     size = np.zeros((1,1,3))
     for line in lines:
                     
-        #line = line.replace('images','labels')
-        #line = line.replace('img1','labels')
-        line = line.replace('JPEGImages','labels')        
-        
-
-        line = line.replace('.jpg','.txt')
-        line = line.replace('.png','.txt')
-        print(line)
-        f2 = open(line)
-        for line in f2.readlines():
-            line = line.rstrip('\n')
-            w,h = line.split(' ')[3:]            
-            #print(w,h)
-            annotation_dims.append(tuple(map(float,(w,h))))
+        # 兼容多种数据集布局: VOC 风格 (JPEGImages -> labels) 或 YOLO 标准 (images -> labels)
+        line_lbl = line.replace('JPEGImages', 'labels')
+        line_lbl = line_lbl.replace(os.sep + 'images' + os.sep,
+                                    os.sep + 'labels' + os.sep)
+        line_lbl = line_lbl.replace('/images/', '/labels/')
+        # 替换扩展名为 .txt (使用 splitext 避免文件名内含点导致截断)
+        base, _ = os.path.splitext(line_lbl)
+        line_lbl = base + '.txt'
+        if not os.path.exists(line_lbl):
+            print(f'[skip] 标签不存在: {line_lbl}')
+            continue
+        f2 = open(line_lbl)
+        for ln in f2.readlines():
+            ln = ln.strip()
+            if not ln:
+                continue
+            parts = ln.split()
+            if len(parts) < 5:
+                continue
+            w, h = parts[3], parts[4]
+            annotation_dims.append(tuple(map(float, (w, h))))
+        f2.close()
     annotation_dims = np.array(annotation_dims)
   
     eps = 0.005
