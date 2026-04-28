@@ -2,8 +2,8 @@
 model_name=dms-kaggle
 
 [train-configure]
-epochs=300
-steps=150,250
+epochs=500
+steps=250,420
 batch_size=64
 subdivisions=1
 learning_rate=0.001
@@ -14,7 +14,7 @@ classes=5
 width=352
 height=352
 anchor_num=3
-anchors=22.09,25.21, 35.00,102.20, 49.40,39.63, 99.51,107.01, 108.28,200.34, 225.28,220.00
+anchors=23.16,25.46, 41.34,75.90, 76.31,144.61, 123.59,206.39, 152.21,76.93, 242.63,219.70
 
 [data-configure]
 train=data/dms-kaggle/train.txt
