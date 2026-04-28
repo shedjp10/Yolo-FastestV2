@@ -2,6 +2,12 @@
 weights/*
 !weights/README.md
 !weights/.gitkeep
+
+# 推理脚本临时输出
+infer_onnx_result.png
+infer_ncnn_result.png
+.test_img.txt
+data/test.jpg
 data/voc.data
 data/voc.names
 
