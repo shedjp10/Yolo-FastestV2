@@ -30,8 +30,9 @@ import numpy as np
 import torch
 from PIL import Image, ImageDraw, ImageFont
 
-import model.detector
+import model.detector as detector_mod
 import utils.utils
+import utils.datasets
 
 
 # 类别固定配色 (BGR), 与 data/dms-kaggle.names 对应
@@ -104,23 +105,8 @@ def get_chinese_font(size: int, font_path: str = None):
     return ImageFont.load_default()
 
 
-def letterbox(frame, new_w, new_h, pad_color=(114, 114, 114)):
-    """
-    等比缩放 + 灰边填充。
-    返回:
-        canvas (new_h, new_w, 3) BGR
-        ratio  缩放比例 (单一标量, 长宽相同)
-        pad_l, pad_t  左/上 padding 像素
-    """
-    h, w = frame.shape[:2]
-    ratio = min(new_w / w, new_h / h)
-    rw, rh = int(round(w * ratio)), int(round(h * ratio))
-    resized = cv2.resize(frame, (rw, rh), interpolation=cv2.INTER_LINEAR)
-    pad_l = (new_w - rw) // 2
-    pad_t = (new_h - rh) // 2
-    canvas = np.full((new_h, new_w, 3), pad_color, dtype=frame.dtype)
-    canvas[pad_t:pad_t + rh, pad_l:pad_l + rw] = resized
-    return canvas, ratio, pad_l, pad_t
+# letterbox 复用 utils.datasets.letterbox, 避免重复实现
+letterbox = utils.datasets.letterbox
 
 
 def map_box_to_orig(box, ratio, pad_l, pad_t, ori_w, ori_h):
@@ -136,9 +122,16 @@ def map_box_to_orig(box, ratio, pad_l, pad_t, ori_w, ori_h):
     return x1, y1, x2, y2
 
 
-def preprocess(frame, width, height, device):
-    """letterbox 后转为 (1,3,H,W) float32 tensor / 255。"""
-    canvas, ratio, pad_l, pad_t = letterbox(frame, width, height)
+def preprocess(frame, width, height, device, keep_ratio=True):
+    """letterbox(默认) 或 stretch 后转为 (1,3,H,W) float32 tensor / 255。"""
+    if keep_ratio:
+        canvas, ratio, pad_l, pad_t = letterbox(frame, width, height)
+    else:
+        canvas = cv2.resize(frame, (width, height), interpolation=cv2.INTER_LINEAR)
+        h, w = frame.shape[:2]
+        # 伪装成 letterbox 输出以重用反变换: ratio 不均匀时取两轴各自比例
+        # 为保持接口一致性, 返回 None 表示调用方需使用 stretch 反变换
+        ratio, pad_l, pad_t = None, 0, 0
     img = canvas.transpose(2, 0, 1)[None]
     tensor = torch.from_numpy(img).to(device).float() / 255.0
     return tensor, ratio, pad_l, pad_t
@@ -229,6 +222,10 @@ def parse_args():
                         help="摄像头采集宽度 (0 = 默认)")
     parser.add_argument("--height", type=int, default=0,
                         help="摄像头采集高度 (0 = 默认)")
+    parser.add_argument("--keep-ratio", dest="keep_ratio", action="store_true",
+                        default=True, help="预处理使用 letterbox 等比缩放 (默认开)")
+    parser.add_argument("--no-keep-ratio", dest="keep_ratio", action="store_false",
+                        help="预处理直接 stretch 拉伸")
     parser.add_argument("--font", type=str, default="",
                         help="中文字体文件路径 (.ttf/.ttc); 默认自动找微软雅黑/黑体/宋体")
     parser.add_argument("--font-size", type=int, default=22,
@@ -273,16 +270,19 @@ def main():
     print(f"[demo_camera] device       = {device}")
     print(f"[demo_camera] data config  = {opt.data}")
     print(f"[demo_camera] weight       = {weight_path} (mAP={weight_ap:.4f})")
-    print(f"[demo_camera] input size   = {cfg['width']} x {cfg['height']} (letterbox)")
+    mode_str = 'letterbox' if opt.keep_ratio else 'stretch'
+    print(f"[demo_camera] input size   = {cfg['width']} x {cfg['height']} ({mode_str})")
     print(f"[demo_camera] conf / iou   = {opt.conf} / {opt.iou}")
 
     # 模型加载 (weights_only=True 更安全 + 静音 FutureWarning)
-    net = model.detector.Detector(cfg["classes"], cfg["anchor_num"], True).to(device)
+    net = detector_mod.Detector(cfg["classes"], cfg["anchor_num"], True).to(device)
     try:
         state = torch.load(weight_path, map_location=device, weights_only=True)
     except TypeError:
-        # 老版本 torch 不支持 weights_only 参数
         state = torch.load(weight_path, map_location=device)
+    # 兼容 train.py 新格式 {epoch, state_dict, mAP, ...}
+    if isinstance(state, dict) and 'state_dict' in state:
+        state = state['state_dict']
     net.load_state_dict(state)
     net.eval()
 
@@ -331,9 +331,10 @@ def main():
 
                 ori_h, ori_w = frame.shape[:2]
 
-                # --- 预处理 (letterbox) ---
+                # --- 预处理 (letterbox 或 stretch) ---
                 tensor, ratio, pad_l, pad_t = preprocess(
-                    frame, cfg["width"], cfg["height"], device
+                    frame, cfg["width"], cfg["height"], device,
+                    keep_ratio=opt.keep_ratio,
                 )
 
                 # --- 推理 + 后处理 ---
@@ -357,9 +358,17 @@ def main():
                         cls_id = int(b[5])
                         if cls_id < 0 or cls_id >= len(en_names):
                             continue
-                        x1, y1, x2, y2 = map_box_to_orig(
-                            b, ratio, pad_l, pad_t, ori_w, ori_h
-                        )
+                        if opt.keep_ratio:
+                            x1, y1, x2, y2 = map_box_to_orig(
+                                b, ratio, pad_l, pad_t, ori_w, ori_h
+                            )
+                        else:
+                            sw = ori_w / cfg["width"]
+                            sh = ori_h / cfg["height"]
+                            x1 = int(max(0, min(ori_w - 1, b[0] * sw)))
+                            y1 = int(max(0, min(ori_h - 1, b[1] * sh)))
+                            x2 = int(max(0, min(ori_w - 1, b[2] * sw)))
+                            y2 = int(max(0, min(ori_h - 1, b[3] * sh)))
                         if x2 <= x1 or y2 <= y1:
                             continue
                         detections.append({
