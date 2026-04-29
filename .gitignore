@@ -1,3 +1,7 @@
+# IDE
+.idea/
+.vscode/
+
 **/__pycache__/
 weights/*
 !weights/README.md
