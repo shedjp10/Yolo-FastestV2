@@ -223,7 +223,7 @@ def parse_args():
     p.add_argument("--weights-dir", type=str, default="weights",
                    help="自动查找 ncnn 模型时使用的目录")
     p.add_argument("--cam", default="0", help="摄像头索引或视频文件路径")
-    p.add_argument("--conf", type=float, default=0.6, help="置信度阈值")
+    p.add_argument("--conf", type=float, default=0.85, help="置信度阈值")
     p.add_argument("--iou", type=float, default=0.4, help="NMS IoU 阈值")
     p.add_argument("--width", type=int, default=0, help="摄像头采集宽度 (0=默认)")
     p.add_argument("--height", type=int, default=0, help="摄像头采集高度 (0=默认)")
