@@ -18,6 +18,9 @@ data/voc.names
 # 训练日志
 logs/
 
+# NCNN/ONNX 推理截屏
+snapshots/
+
 # 数据集原始数据（数据集本身不入库，从 Kaggle 获取）
 data/dms-kaggle/train/
 data/dms-kaggle/valid/

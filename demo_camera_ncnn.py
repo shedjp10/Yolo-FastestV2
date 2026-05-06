@@ -141,6 +141,19 @@ class NCNNDetector:
         dets = np.concatenate(dets_all, axis=0) if dets_all else np.zeros((0, 6))
         dets = nms(dets, iou_thres)
 
+        # 眼睛类 (cls 0/1) 最多保留 2 个框, 其余类最多 1 个框
+        EYE_CLS = {0, 1}
+        MAX_PER_CLS = 2  # 眼睛上限
+        if len(dets) > 0:
+            keep = {}
+            for d in sorted(dets, key=lambda x: -x[4]):  # score 从高到低
+                cls_id = int(d[5])
+                limit = MAX_PER_CLS if cls_id in EYE_CLS else 1
+                bucket = keep.setdefault(cls_id, [])
+                if len(bucket) < limit:
+                    bucket.append(d)
+            dets = np.array([d for bucket in keep.values() for d in bucket], dtype=np.float32)
+
         # 反映射到原图 (stretch 反变换)
         sx = ori_w / self.W
         sy = ori_h / self.H
@@ -223,7 +236,7 @@ def parse_args():
     p.add_argument("--weights-dir", type=str, default="weights",
                    help="自动查找 ncnn 模型时使用的目录")
     p.add_argument("--cam", default="0", help="摄像头索引或视频文件路径")
-    p.add_argument("--conf", type=float, default=0.85, help="置信度阈值")
+    p.add_argument("--conf", type=float, default=0.25, help="置信度阈值")
     p.add_argument("--iou", type=float, default=0.4, help="NMS IoU 阈值")
     p.add_argument("--width", type=int, default=0, help="摄像头采集宽度 (0=默认)")
     p.add_argument("--height", type=int, default=0, help="摄像头采集高度 (0=默认)")
